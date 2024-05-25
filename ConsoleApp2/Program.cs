@@ -27,7 +27,7 @@ namespace ConsoleApp2
         private static ConcurrentDictionary<long, RegistrationState> _registrationStates = new ConcurrentDictionary<long, RegistrationState>();
         private static ConcurrentDictionary<string, int> _photoCounts = new ConcurrentDictionary<string, int>();
         private static readonly object _fileLock = new object(); // объект для блокировки доступа к файлу
-        public static MyEntities dbContext = MyEntities.GetContext();
+
         static async Task Main(string[] args)
         {
             // Инициализация клиента бота
@@ -49,14 +49,15 @@ namespace ConsoleApp2
 
         private static async void SendRequests(object state)
         {
-
+            using (var dbContext = MyEntities.GetContext())
+            {
                 var users = dbContext.Users.ToList();
                 foreach (var user in users)
                 {
                     await _botClient.SendTextMessageAsync(user.ChatTelegramId, "Пожалуйста, отправьте 5 фотографий и вашу геолокацию.");
                     _photoCounts[user.ChatTelegramId] = 0;
                 }
-            
+            }
         }
 
         private static async void BotOnMessageReceived(object sender, MessageEventArgs e)
@@ -108,7 +109,8 @@ namespace ConsoleApp2
                 }
                 else if (message.Text.StartsWith("/register"))
                 {
-            
+                    using (var dbContext = MyEntities.GetContext())
+                    {
                         var existingUser = dbContext.Users.FirstOrDefault(u => u.ChatTelegramId == message.Chat.Id.ToString());
 
                         if (existingUser != null)
@@ -119,7 +121,7 @@ namespace ConsoleApp2
 
                         _registrationStates[message.Chat.Id] = new RegistrationState();
                         await _botClient.SendTextMessageAsync(message.Chat.Id, "Введите ваше имя:");
-                    
+                    }
                 }
                 else if (_registrationStates.ContainsKey(message.Chat.Id))
                 {
@@ -151,7 +153,8 @@ namespace ConsoleApp2
                     }
                     else if (state.IsAwaitingPointSelection)
                     {
-         
+                        using (var dbContext = MyEntities.GetContext())
+                        {
                             var point = dbContext.Points.FirstOrDefault(p => p.PointName.Equals(message.Text, StringComparison.OrdinalIgnoreCase));
                             if (point == null)
                             {
@@ -175,7 +178,7 @@ namespace ConsoleApp2
 
                                 await _botClient.SendTextMessageAsync(message.Chat.Id, "Вы успешно зарегистрированы.", replyMarkup: new ReplyKeyboardRemove());
                             }
-                       
+                        }
                     }
                 }
             }
@@ -183,7 +186,8 @@ namespace ConsoleApp2
 
         private static async Task SavePhotoInformationAsync(long chatId, string filePath)
         {
-  
+            using (var dbContext = MyEntities.GetContext())
+            {
                 var user = dbContext.Users.FirstOrDefault(u => u.ChatTelegramId == chatId.ToString());
                 if (user == null) return;
 
@@ -204,12 +208,13 @@ namespace ConsoleApp2
 
                 dbContext.Photos.Add(photo);
                 await dbContext.SaveChangesAsync();
-            
+            }
         }
 
         private static async Task SaveLocationInformationAsync(long chatId, float latitude, float longitude)
         {
-  
+            using (var dbContext = MyEntities.GetContext())
+            {
                 var user = dbContext.Users.FirstOrDefault(u => u.ChatTelegramId == chatId.ToString());
                 if (user == null) return;
 
@@ -220,7 +225,7 @@ namespace ConsoleApp2
                     info.Longitude = longitude;
                     await dbContext.SaveChangesAsync();
                 }
- 
+            }
         }
     }
 }

@@ -11,11 +11,7 @@ namespace ConsoleApp2
         }
         public static MyEntities GetContext()
         {
-            if (context == null)
-            {
-                context = new MyEntities();
-            }
-            return context;
+            return new MyEntities();
         }
         public DbSet<Point> Points { get; set; }
         public DbSet<User> Users { get; set; }
