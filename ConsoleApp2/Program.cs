@@ -19,6 +19,7 @@ namespace ConsoleApp2
         public string Patronymic { get; set; }
         public string PointName { get; set; }
         public bool IsAwaitingPointSelection { get; set; }
+        public bool IsAwaitingLocation { get; set; } // Новый флаг для ожидания геолокации
     }
 
     class Program
@@ -88,16 +89,28 @@ namespace ConsoleApp2
                     await SavePhotoInformationAsync(message.Chat.Id, filePath);
 
                     _photoCounts[message.Chat.Id.ToString()] = photoCount + 1;
+
+                    if (photoCount + 1 == 5)
+                    {
+                        var state = GetOrCreateState(message.Chat.Id);
+                        state.IsAwaitingLocation = true;
+
+                        var locationButton = new KeyboardButton("Отправить геолокацию") { RequestLocation = true };
+                        var replyKeyboardMarkup = new ReplyKeyboardMarkup(locationButton) { ResizeKeyboard = true, OneTimeKeyboard = true };
+                        await _botClient.SendTextMessageAsync(message.Chat.Id, "Пожалуйста, отправьте вашу геолокацию.", replyMarkup: replyKeyboardMarkup);
+                    }
                 }
             }
             else if (message.Type == MessageType.Location)
             {
-                if (_photoCounts.ContainsKey(message.Chat.Id.ToString()) && _photoCounts[message.Chat.Id.ToString()] >= 5)
+                var state = GetOrCreateState(message.Chat.Id);
+                if (_photoCounts.ContainsKey(message.Chat.Id.ToString()) && _photoCounts[message.Chat.Id.ToString()] >= 5 && state.IsAwaitingLocation)
                 {
                     await SaveLocationInformationAsync(message.Chat.Id, message.Location.Latitude, message.Location.Longitude);
 
-                    await _botClient.SendTextMessageAsync(message.Chat.Id, "Спасибо! Ваши данные успешно сохранены.");
+                    await _botClient.SendTextMessageAsync(message.Chat.Id, "Спасибо! Ваши данные успешно сохранены.", replyMarkup: new ReplyKeyboardRemove());
                     _photoCounts.TryRemove(message.Chat.Id.ToString(), out _);
+                    state.IsAwaitingLocation = false;
                 }
             }
             else if (message.Type == MessageType.Text)
@@ -226,6 +239,15 @@ namespace ConsoleApp2
                     await dbContext.SaveChangesAsync();
                 }
             }
+        }
+
+        private static RegistrationState GetOrCreateState(long chatId)
+        {
+            if (!_registrationStates.ContainsKey(chatId))
+            {
+                _registrationStates[chatId] = new RegistrationState();
+            }
+            return _registrationStates[chatId];
         }
     }
 }
