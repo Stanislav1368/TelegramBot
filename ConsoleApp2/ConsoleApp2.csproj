@@ -111,6 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="photos\" />
+    <Folder Include="uploads\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
